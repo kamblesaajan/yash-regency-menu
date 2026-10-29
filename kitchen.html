@@ -1,206 +1,51 @@
-
 <!DOCTYPE html>
-<html lang="mr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YASH REGENCY Kitchen</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 16px;
-      background: #f3f4f6;
-    }
-    h1 { text-align: center; }
-    input, button, select {
-      padding: 12px;
-      margin: 5px 0;
-      width: 100%;
-      box-sizing: border-box;
-      font-size: 16px;
-    }
-    .order {
-      background: white;
-      padding: 14px;
-      margin: 12px 0;
-      border-radius: 10px;
-      box-shadow: 0 1px 5px #ccc;
-    }
-    .muted { color: #555; }
-    #orders { margin-top: 16px; }
-  </style>
-</head>
-<body>
-  <h1>YASH REGENCY</h1>
-  <h2>🍳 Kitchen Dashboard</h2>
-
-  <div id="login">
-    <input id="email" type="email"
-      placeholder="Kitchen User Email">
-    <input id="password" type="password"
-      placeholder="Password">
-    <button id="loginBtn">Login</button>
-  </div>
-
-  <p id="message" class="muted"></p>
-  <button id="logoutBtn" hidden>Logout</button>
-  <div id="orders"></div>
-
-  <script type="module">
-    import {
-      initializeApp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-    import {
-      getFirestore, collection, onSnapshot,
-      doc, updateDoc, query, orderBy
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    import {
-      getAuth, signInWithEmailAndPassword,
-      signOut, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyD1nikczF300yAMc9rOYukSvn08TQOWJNg",
-      authDomain: "yash-qr-menu.firebaseapp.com",
-      projectId: "yash-qr-menu",
-      storageBucket: "yash-qr-menu.firebasestorage.app",
-      messagingSenderId: "704490884119",
-      appId: "1:704490884119:web:0844f7d412aee2369ee052"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-
-    const kitchenUID = "ogYY39TCfVRdSGkFalyEt9TnXGF3";
-    const message = document.getElementById("message");
-    const ordersDiv = document.getElementById("orders");
-
-    let stopListening = null;
-
-    document.getElementById("loginBtn").onclick = async () => {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-
-      try {
-        message.textContent = "Login सुरू आहे...";
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (e) {
-        message.textContent = "Login त्रुटी: " + e.message;
-      }
-    };
-
-    document.getElementById("logoutBtn").onclick = async () => {
-      if (stopListening) stopListening();
-      await signOut(auth);
-      ordersDiv.replaceChildren();
-      message.textContent = "Logout झाले.";
-    };
-
-    onAuthStateChanged(auth, user => {
-      if (stopListening) {
-        stopListening();
-        stopListening = null;
-      }
-
-      ordersDiv.replaceChildren();
-
-      if (!user) {
-        document.getElementById("login").hidden = false;
-        document.getElementById("logoutBtn").hidden = true;
-        return;
-      }
-
-      if (user.uid !== kitchenUID) {
-        message.textContent = "या खात्याला Kitchen Dashboard ची परवानगी नाही.";
-        signOut(auth);
-        return;
-      }
-
-      document.getElementById("login").hidden = true;
-      document.getElementById("logoutBtn").hidden = false;
-      message.textContent = "Kitchen Login यशस्वी. ऑर्डर लोड होत आहेत...";
-
-      const q = query(
-        collection(db, "orders"),
-        orderBy("createdAt", "desc")
-      );
-
-      stopListening = onSnapshot(q, snapshot => {
-        ordersDiv.replaceChildren();
-
-        if (snapshot.empty) {
-          message.textContent = "अजून ऑर्डर उपलब्ध नाही.";
-          return;
-        }
-
-        message.textContent = "एकूण ऑर्डर: " + snapshot.size;
-
-        snapshot.forEach(orderDoc => {
-          const o = orderDoc.data();
-          const card = document.createElement("div");
-          card.className = "order";
-
-          const title = document.createElement("h3");
-          title.textContent = "टेबल: " + (o.tableNo || "-");
-          card.appendChild(title);
-
-          const itemsTitle = document.createElement("p");
-          itemsTitle.textContent = "पदार्थ:";
-          card.appendChild(itemsTitle);
-
-          (Array.isArray(o.items) ? o.items : []).forEach(item => {
-            const p = document.createElement("p");
-            p.textContent =
-              (item.name || "पदार्थ") + " × " +
-              (item.qty || 1) + " — ₹" +
-              (Number(item.price) || 0);
-            card.appendChild(p);
-          });
-
-          const total = document.createElement("strong");
-          total.textContent = "एकूण: ₹" + (Number(o.total) || 0);
-          card.appendChild(total);
-
-          const status = document.createElement("p");
-          status.textContent = "स्थिती: " + (o.status || "नवीन");
-          card.appendChild(status);
-
-          const select = document.createElement("select");
-          ["नवीन", "तयार होत आहे", "तयार", "पूर्ण"].forEach(s => {
-            const option = document.createElement("option");
-            option.value = s;
-            option.textContent = s;
-            option.selected = (o.status || "नवीन") === s;
-            select.appendChild(option);
-          });
-
-          const save = document.createElement("button");
-          save.textContent = "स्थिती अपडेट करा";
-          save.onclick = async () => {
-            save.disabled = true;
-            try {
-              await updateDoc(doc(db, "orders", orderDoc.id), {
-                status: select.value
-              });
-            } catch (e) {
-              message.textContent = "अपडेट त्रुटी: " + e.message;
-            } finally {
-              save.disabled = false;
-            }
-          };
-
-          card.appendChild(select);
-          card.appendChild(save);
-          ordersDiv.appendChild(card);
-        });
-      }, error => {
-        message.textContent = "ऑर्डर लोड त्रुटी: " + error.message;
-      });
-    });
-  </script>
-</body>
-</html>
+<html lang="mr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>YASH REGENCY Kitchen & Admin</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;padding:15px;background:#f3f4f6;color:#222}h1{text-align:center;color:#174b37}input,button,select{padding:12px;margin:5px 0;width:100%;box-sizing:border-box;font-size:16px}button{background:#174b37;color:white;border:0;border-radius:7px;cursor:pointer}button:disabled{opacity:.5}.order,.panel{background:white;padding:14px;margin:12px 0;border-radius:10px;box-shadow:0 1px 5px #ccc}.muted{color:#555;overflow-wrap:anywhere}.menurow{border-top:1px solid #ddd;padding:10px 0}[hidden]{display:none!important}@media print{body{background:white;padding:0}.no-print,#login,#adminPanel,#message,#logoutBtn,h1,h2{display:none!important}.order{box-shadow:none;border:1px solid #ccc;break-inside:avoid}}
+</style></head><body>
+<h1>YASH REGENCY</h1><h2>🍳 Kitchen Dashboard</h2>
+<div id="login" class="panel"><input id="email" type="email" placeholder="Kitchen/Admin Email"><input id="password" type="password" placeholder="Password"><button id="loginBtn">Login</button></div>
+<p id="message" class="muted"></p><button id="logoutBtn" hidden>Logout</button>
+<section id="adminPanel" class="panel" hidden><h2>⚙️ Admin Menu Management</h2><p class="muted">पदार्थ जोडा, किंमत/उपलब्धता बदला. बदल QR मेनूमध्ये दिसतील.</p>
+<input id="menuName" placeholder="पदार्थाचे नाव"><input id="menuPrice" type="number" min="0" step="1" placeholder="किंमत ₹">
+<label><input id="menuAvailable" type="checkbox" checked style="width:auto"> ग्राहकांना उपलब्ध दाखवा</label>
+<button id="saveMenuBtn">नवीन पदार्थ जोडा</button><button id="cancelEditBtn" class="no-print" hidden>बदल रद्द करा</button><button id="seedBtn" class="no-print">मूळ नमुना मेनू Firebase मध्ये जोडा (फक्त एकदा)</button><div id="menuAdminList"></div></section>
+<h2>📋 आलेल्या ऑर्डर्स</h2><div id="orders"></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,collection,onSnapshot,doc,updateDoc,query,orderBy,addDoc,deleteDoc,serverTimestamp,getDocs,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+const firebaseConfig={apiKey:"AIzaSyD1nikczF300yAMc9rOYukSvn08TQOWJNg",authDomain:"yash-qr-menu.firebaseapp.com",projectId:"yash-qr-menu",storageBucket:"yash-qr-menu.firebasestorage.app",messagingSenderId:"704490884119",appId:"1:704490884119:web:0844f7d412aee2369ee052"};
+const app=initializeApp(firebaseConfig),db=getFirestore(app),auth=getAuth(app),kitchenUID="ogYY39TCfVRdSGkFalyEt9TnXGF3";
+const el=id=>document.getElementById(id),message=el("message"),ordersDiv=el("orders");let stopListening=null,stopMenu=null,editingId=null;
+function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+el("loginBtn").onclick=async()=>{try{message.textContent="Login सुरू आहे...";await signInWithEmailAndPassword(auth,el("email").value.trim(),el("password").value);}catch(e){message.textContent="Login त्रुटी: "+e.message;}};
+el("logoutBtn").onclick=async()=>{if(stopListening)stopListening();if(stopMenu)stopMenu();await signOut(auth);ordersDiv.replaceChildren();el("adminPanel").hidden=true;message.textContent="Logout झाले.";};
+function printBill(o,id){
+ const w=window.open("","_blank","width=450,height=700");if(!w){alert("बिल प्रिंट करण्यासाठी pop-ups परवानगी द्या.");return;}
+ const rows=(Array.isArray(o.items)?o.items:[]).map(i=>`<tr><td>${escapeHtml(i.name||"पदार्थ")}</td><td>${Number(i.qty)||1}</td><td>₹${Number(i.price)||0}</td><td>₹${(Number(i.qty)||1)*(Number(i.price)||0)}</td></tr>`).join("");
+ w.document.write(`<!doctype html><html lang="mr"><meta charset="utf-8"><title>YASH REGENCY Bill</title><style>body{font-family:Arial;padding:16px}h2,p{text-align:center}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #aaa;padding:7px 2px;text-align:left}.total{text-align:right;font-weight:bold;margin-top:18px}</style><h2>YASH REGENCY</h2><p>खरेदी बिल</p><p>ऑर्डर: ${escapeHtml(id)}<br>टेबल: ${escapeHtml(o.tableNo||"-")}</p><table><thead><tr><th>पदार्थ</th><th>Qty</th><th>दर</th><th>रक्कम</th></tr></thead><tbody>${rows}</tbody></table><p class="total">एकूण: ₹${Number(o.total)||0}</p><p>धन्यवाद! पुन्हा भेट द्या.</p><script>window.onload=()=>window.print()<\/script></html>`);w.document.close();
+}
+function renderOrders(snap){
+ ordersDiv.replaceChildren();if(snap.empty){message.textContent="अजून ऑर्डर उपलब्ध नाही.";return;}message.textContent="एकूण ऑर्डर: "+snap.size;
+ snap.forEach(d=>{const o=d.data(),card=document.createElement("div");card.className="order";card.append(node("h3","टेबल: "+(o.tableNo||"-")),node("p","ऑर्डर क्रमांक: "+d.id),node("p","पदार्थ:"));
+ (Array.isArray(o.items)?o.items:[]).forEach(i=>card.append(node("p",`${i.name||"पदार्थ"} × ${Number(i.qty)||1} — ₹${Number(i.price)||0}`)));
+ card.append(node("strong","एकूण: ₹"+(Number(o.total)||0)),node("p","स्थिती: "+(o.status||"नवीन")));
+ const sel=document.createElement("select");["नवीन","तयार होत आहे","तयार","पूर्ण"].forEach(s=>{const op=node("option",s);op.value=s;op.selected=(o.status||"नवीन")===s;sel.append(op);});
+ const save=node("button","स्थिती अपडेट करा");save.className="no-print";save.onclick=async()=>{save.disabled=true;try{await updateDoc(doc(db,"orders",d.id),{status:sel.value});}catch(e){message.textContent="अपडेट त्रुटी: "+e.message;}finally{save.disabled=false;}};
+ const bill=node("button","🧾 बिल प्रिंट करा");bill.className="no-print";bill.onclick=()=>printBill(o,d.id);card.append(sel,save,bill);ordersDiv.append(card);});
+}
+function renderMenu(snap){
+ const root=el("menuAdminList");root.replaceChildren();if(snap.empty){root.append(node("p","मेनू रिकामा आहे. नमुना मेनू जोडण्यासाठी वरचे बटण वापरा."));return;}
+ snap.forEach(d=>{const m=d.data(),row=document.createElement("div");row.className="menurow";row.append(node("strong",`${m.name} — ₹${Number(m.price)||0}`),node("p",m.available===false?"स्थिती: उपलब्ध नाही":"स्थिती: उपलब्ध"));
+ const edit=node("button","Edit / दर बदला");edit.onclick=()=>{editingId=d.id;el("menuName").value=m.name||"";el("menuPrice").value=Number(m.price)||0;el("menuAvailable").checked=m.available!==false;el("saveMenuBtn").textContent="बदल सेव्ह करा";el("cancelEditBtn").hidden=false;};
+ const toggle=node("button",m.available===false?"उपलब्ध करा":"अनुपलब्ध करा");toggle.onclick=async()=>{try{await updateDoc(doc(db,"menu",d.id),{available:m.available===false,updatedAt:serverTimestamp()});}catch(e){message.textContent="मेनू अपडेट त्रुटी: "+e.message;}};
+ const del=node("button","Delete");del.onclick=async()=>{if(confirm("हा पदार्थ हटवायचा आहे?"))try{await deleteDoc(doc(db,"menu",d.id));}catch(e){message.textContent="Delete त्रुटी: "+e.message;}};row.append(edit,toggle,del);root.append(row);});
+}
+function resetForm(){editingId=null;el("menuName").value="";el("menuPrice").value="";el("menuAvailable").checked=true;el("saveMenuBtn").textContent="नवीन पदार्थ जोडा";el("cancelEditBtn").hidden=true;}
+el("cancelEditBtn").onclick=resetForm;
+el("saveMenuBtn").onclick=async()=>{const name=el("menuName").value.trim(),raw=el("menuPrice").value,price=Number(raw),available=el("menuAvailable").checked;if(!name||raw===""||!Number.isFinite(price)||price<0){alert("पदार्थाचे नाव आणि योग्य किंमत भरा.");return;}const b=el("saveMenuBtn");b.disabled=true;try{if(editingId)await updateDoc(doc(db,"menu",editingId),{name,price,available,updatedAt:serverTimestamp()});else await addDoc(collection(db,"menu"),{name,price,available,createdAt:serverTimestamp()});resetForm();message.textContent="मेनू सेव्ह झाला.";}catch(e){message.textContent="मेनू सेव्ह त्रुटी: "+e.message;}finally{b.disabled=false;}};
+el("seedBtn").onclick=async()=>{if(!confirm("रिकाम्या menu collection मध्ये मूळ 12 पदार्थ जोडायचे? आधीच पदार्थ असतील तर ते बदलणार नाहीत."))return;const b=el("seedBtn");b.disabled=true;try{const snap=await getDocs(collection(db,"menu"));if(!snap.empty){message.textContent="Menu collection रिकामा नाही. नमुना मेनू जोडला नाही.";return;}const defaults=[["Tea",20],["Coffee",30],["Veg Soup",100],["French Fries",120],["Veg Manchurian",180],["Paneer Butter Masala",240],["Dal Fry",150],["Chapati",15],["Jeera Rice",130],["Veg Biryani",180],["Chicken Biryani",240],["Ice Cream",80]];const batch=writeBatch(db);defaults.forEach(([name,price])=>batch.set(doc(collection(db,"menu")),{name,price,available:true,createdAt:serverTimestamp()}));await batch.commit();message.textContent="नमुना मेनू जोडला."; }catch(e){message.textContent="नमुना मेनू जोडता आला नाही: "+e.message;}finally{b.disabled=false;}};
+onAuthStateChanged(auth,user=>{if(stopListening){stopListening();stopListening=null;}if(stopMenu){stopMenu();stopMenu=null;}ordersDiv.replaceChildren();el("adminPanel").hidden=true;if(!user){el("login").hidden=false;el("logoutBtn").hidden=true;return;}if(user.uid!==kitchenUID){message.textContent="या खात्याला Kitchen/Admin परवानगी नाही.";signOut(auth);return;}el("login").hidden=true;el("logoutBtn").hidden=false;el("adminPanel").hidden=false;message.textContent="Login यशस्वी. डेटा लोड होत आहे...";stopListening=onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),renderOrders,e=>message.textContent="ऑर्डर लोड त्रुटी: "+e.message);stopMenu=onSnapshot(query(collection(db,"menu"),orderBy("name")),renderMenu,e=>message.textContent="मेनू लोड त्रुटी: "+e.message);});
+</script></body></html>
