@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YASH REGENCY - Select Language</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #10251d;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .panel {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      color: #173b2d;
+      border-radius: 20px;
+      padding: 28px 22px;
+      text-align: center;
+      box-shadow: 0 10px 35px #0004;
+    }
+    h1 { margin-bottom: 8px; }
+    p { color: #555; }
+    button {
+      width: 100%;
+      padding: 16px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 12px;
+      background: #176b45;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:active { background: #104b31; }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <h1>YASH REGENCY</h1>
+    <p id="welcome">Please select your language</p>
+
+    <button onclick="chooseLanguage('mr')">मराठी</button>
+    <button onclick="chooseLanguage('en')">English</button>
+    <button onclick="chooseLanguage('hi')">हिंदी</button>
+  </main>
+
+  <script>
+    function chooseLanguage(lang) {
+      const params = new URLSearchParams(window.location.search);
+      params.set("lang", lang);
+
+      window.location.href =
+        "index.html?" + params.toString();
+    }
+  </script>
+</body>
+</html>
