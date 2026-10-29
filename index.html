@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="mr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YASH REGENCY QR MENU</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f4f5f4;color:#222}header{background:#174b37;color:white;text-align:center;padding:18px}main{padding:15px;max-width:680px;margin:auto}.item,.panel{background:white;padding:14px;margin:10px 0;border-radius:10px;box-shadow:0 1px 4px #ddd}.item{display:flex;justify-content:space-between;align-items:center;gap:12px}button{background:#174b37;color:white;border:0;border-radius:7px;padding:10px 14px;font-size:16px;cursor:pointer}button:disabled{opacity:.55}input{padding:12px;width:100%;margin:6px 0;border:1px solid #ccc;border-radius:7px;box-sizing:border-box;font-size:16px}.small{font-size:13px;color:#555;overflow-wrap:anywhere}.status{font-weight:bold;color:#174b37}
+</style></head><body>
+<header><h1>YASH REGENCY</h1><p>Welcome to Our QR Menu</p></header>
+<main><h2>🍽️ आमचा मेनू</h2><div id="menu">मेनू लोड होत आहे...</div>
+<div class="panel"><h2>🛒 तुमची ऑर्डर</h2><div id="cartItems">अजून पदार्थ निवडलेले नाहीत.</div><h3>एकूण: ₹<span id="total">0</span></h3>
+<input id="table" placeholder="टेबल नंबर लिहा"><button id="placeBtn">ऑर्डर तयार करा</button><p id="result"></p></div>
+<div class="panel"><h2>🔎 ऑर्डरची स्थिती पाहा</h2><p class="small">ऑर्डर दिल्यानंतर मिळालेला पूर्ण ऑर्डर क्रमांक येथे टाका. स्थिती पाहण्यासाठी ऑर्डर दिलेलाच ब्राउझर वापरा.</p><input id="trackId" placeholder="ऑर्डर क्रमांक"><button id="trackBtn">स्थिती पाहा</button><p id="trackResult"></p></div>
+</main>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,collection,addDoc,serverTimestamp,doc,getDoc,onSnapshot,query,orderBy,getDocs} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+const firebaseConfig={apiKey:"AIzaSyD1nikczF300yAMc9rOYukSvn08TQOWJNg",authDomain:"yash-qr-menu.firebaseapp.com",projectId:"yash-qr-menu",storageBucket:"yash-qr-menu.firebasestorage.app",messagingSenderId:"704490884119",appId:"1:704490884119:web:0844f7d412aee2369ee052"};
+const app=initializeApp(firebaseConfig),db=getFirestore(app),auth=getAuth(app);
+let cart=[],menu=[],stopTracking=null,busy=false;
+const defaults=[["Tea",20],["Coffee",30],["Veg Soup",100],["French Fries",120],["Veg Manchurian",180],["Paneer Butter Masala",240],["Dal Fry",150],["Chapati",15],["Jeera Rice",130],["Veg Biryani",180],["Chicken Biryani",240],["Ice Cream",80]];
+const el=id=>document.getElementById(id);
+function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+async function loadMenu(){
+ try{
+  const snap=await getDocs(query(collection(db,"menu"),orderBy("name")));
+  menu=snap.empty?defaults.map((a,i)=>({id:"default-"+i,name:a[0],price:a[1],available:true})):snap.docs.map(d=>({id:d.id,...d.data()}));
+ }catch(e){menu=defaults.map((a,i)=>({id:"default-"+i,name:a[0],price:a[1],available:true}));el("result").textContent="टीप: Firebase menu वाचता आले नाही; सध्या नमुना मेनू दाखवत आहोत.";}
+ showMenu();
+}
+function showMenu(){
+ const root=el("menu");root.replaceChildren();const items=menu.filter(x=>x.available!==false);
+ if(!items.length){root.textContent="सध्या पदार्थ उपलब्ध नाहीत.";return;}
+ items.forEach(x=>{const row=document.createElement("div");row.className="item";const info=document.createElement("div");info.append(node("b",x.name),document.createElement("br"),document.createTextNode("₹"+(Number(x.price)||0)));const b=node("button","Add +");b.onclick=()=>{cart.push({id:x.id,name:x.name,price:Number(x.price)||0});showCart();};row.append(info,b);root.append(row);});
+}
+function showCart(){const root=el("cartItems");root.replaceChildren();if(!cart.length)root.textContent="अजून पदार्थ निवडलेले नाहीत.";else cart.forEach((x,i)=>{const row=document.createElement("p");row.append(document.createTextNode(`${x.name} — ₹${x.price} `));const b=node("button","काढा");b.style.padding="5px 8px";b.onclick=()=>{cart.splice(i,1);showCart();};row.append(b);root.append(row);});el("total").textContent=cart.reduce((s,x)=>s+x.price,0);}
+async function placeOrder(){
+ if(busy)return;const table=el("table").value.trim();if(!table){alert("कृपया टेबल नंबर लिहा.");return;}if(!cart.length){alert("कृपया मेनूमधून पदार्थ निवडा.");return;}
+ busy=true;el("placeBtn").disabled=true;
+ try{
+  if(!auth.currentUser)await signInAnonymously(auth);
+  const items=cart.map(x=>({name:x.name,price:x.price,qty:1}));
+  const total=cart.reduce((s,x)=>s+x.price,0);
+  const ref=await addDoc(collection(db,"orders"),{hotel:"YASH REGENCY",tableNo:table,customerName:"",notes:"",items,total,status:"नवीन",customerUid:auth.currentUser.uid,createdAt:serverTimestamp()});
+  el("result").replaceChildren(node("span","ऑर्डर यशस्वी! ऑर्डर क्रमांक: "),node("p",ref.id));
+  el("trackId").value=ref.id;cart=[];showCart();el("table").value="";await trackOrder();
+ }catch(e){console.error(e);el("result").textContent="ऑर्डर पाठवता आली नाही: "+e.message;}
+ finally{busy=false;el("placeBtn").disabled=false;}
+}
+async function trackOrder(){
+ const id=el("trackId").value.trim(),out=el("trackResult");if(!id){out.textContent="कृपया ऑर्डर क्रमांक टाका.";return;}
+ try{
+  if(!auth.currentUser)await signInAnonymously(auth);if(stopTracking){stopTracking();stopTracking=null;}
+  const ref=doc(db,"orders",id),snap=await getDoc(ref);
+  if(!snap.exists()){out.textContent="ऑर्डर सापडली नाही. ऑर्डर दिलेल्या त्याच ब्राउझरमध्ये प्रयत्न करा.";return;}
+  if(snap.data().customerUid!==auth.currentUser.uid){out.textContent="या ब्राउझरमध्ये या ऑर्डरची स्थिती पाहण्याची परवानगी नाही.";return;}
+  stopTracking=onSnapshot(ref,s=>{if(!s.exists()){out.textContent="ऑर्डर सापडली नाही.";return;}const o=s.data();out.replaceChildren(node("span","स्थिती: "+(o.status||"नवीन")),node("p","टेबल: "+(o.tableNo||"-")),node("p","एकूण: ₹"+(Number(o.total)||0)));out.firstChild.className="status";},e=>{out.textContent="स्थिती दाखवता आली नाही: "+e.message;});
+ }catch(e){out.textContent="स्थिती पाहता आली नाही: "+e.message;}
+}
+el("placeBtn").onclick=placeOrder;el("trackBtn").onclick=trackOrder;
+await signInAnonymously(auth);await loadMenu();showCart();
+</script></body></html>
