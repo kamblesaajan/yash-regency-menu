@@ -64,11 +64,17 @@ showCart();
 
 // QR लिंकवरून टेबल नंबर आपोआप भरणे
 const params = new URLSearchParams(window.location.search);
-const tableNumber = params.get("table");
 
-if (tableNumber) {
-  el("table").value = tableNumber;
+const roomNumber = params.get("room");
+const tableNumber = params.get("table");
+const selectedNumber = roomNumber || tableNumber;
+
+if (selectedNumber) {
+  el("table").value = selectedNumber;
   el("table").readOnly = true;
+  el("table").placeholder = roomNumber
+    ? "रूम नंबर"
+    : "टेबल नंबर";
 }
 </script>
 </body>
