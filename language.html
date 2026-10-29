@@ -55,13 +55,14 @@
   </main>
 
   <script>
-    function chooseLanguage(lang) {
-      const params = new URLSearchParams(window.location.search);
-      params.set("lang", lang);
+function chooseLanguage(lang) {
+  const params = new URLSearchParams(window.location.search);
 
-      window.location.href =
-        "index.html?" + params.toString();
-    }
-  </script>
+  params.set("lang", lang);
+
+  window.location.href =
+    "./index.html?" + params.toString();
+}
+</script>
 </body>
 </html>
