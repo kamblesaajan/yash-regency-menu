@@ -3,56 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YASH REGENCY QR Generator</title>
+<title>YASH REGENCY Room QR</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-body{font-family:Arial;text-align:center;padding:16px}
-input,button{padding:12px;margin:8px;font-size:16px}
-.card{border:1px solid #ccc;padding:15px;margin:15px auto;max-width:320px}
+body{font-family:Arial;text-align:center;padding:12px;background:#f5f5f5}
+input,button{padding:12px;margin:8px;font-size:16px;max-width:95%}
+.card{background:white;border:1px solid #ccc;padding:15px;margin:15px auto;max-width:320px;break-inside:avoid}
 .qr{display:flex;justify-content:center;margin:15px}
-@media print{.controls{display:none}.card{break-inside:avoid}}
+@media print{.controls{display:none}body{background:white}}
 </style>
 </head>
 <body>
 <h2>YASH REGENCY</h2>
-<h3>टेबल QR कोड तयार करा</h3>
+<h3>Room Service QR Generator</h3>
+
 <div class="controls">
 <p>मेनू लिंक</p>
 <input id="url" style="width:90%"
 value="https://kamblesaajan.github.io/yash-regency-menu/">
-<p>एकूण टेबल</p>
-<input id="count" type="number" value="10" min="1" max="100">
+
+<p>पहिली रूम</p>
+<input id="start" type="number" value="101">
+
+<p>एकूण रूम</p>
+<input id="count" type="number" value="30">
 <br>
 <button onclick="generate()">QR तयार करा</button>
 <button onclick="window.print()">Print / PDF</button>
 </div>
+
 <div id="output"></div>
+
 <script>
 function generate(){
  const base=document.getElementById("url").value.trim();
+ const start=Number(document.getElementById("start").value);
  const count=Number(document.getElementById("count").value);
  const out=document.getElementById("output");
- if(!base.startsWith("https://")||!Number.isInteger(count)||count<1||count>100){
-  alert("योग्य लिंक आणि 1 ते 100 टेबल संख्या टाका.");return;
+
+ if(!base.startsWith("https://") ||
+    !Number.isInteger(start) || start<1 ||
+    !Number.isInteger(count) || count<1 || count>100){
+   alert("लिंक आणि रूम संख्या तपासा.");
+   return;
  }
+
  if(typeof QRCode==="undefined"){
-  alert("QR लायब्ररी लोड झाली नाही. इंटरनेट तपासा.");return;
+   alert("QR लायब्ररी लोड झाली नाही. इंटरनेट तपासा.");
+   return;
  }
+
  out.replaceChildren();
- for(let i=1;i<=count;i++){
-  const url=new URL(base);
-  url.searchParams.set("table",String(i));
-  const card=document.createElement("div");
-  card.className="card";
-  const title=document.createElement("h3");
-  title.textContent="YASH REGENCY - TABLE "+i;
-  const qr=document.createElement("div");
-  qr.className="qr";
-  const link=document.createElement("p");
-  link.textContent=url.toString();
-  card.append(title,qr,link);
-  out.append(card);
-  new QRCode(qr,{text:url.toString(),width:200,height:200});
+
+ for(let i=0;i<count;i++){
+   const room=start+i;
+   const url=new URL(base);
+   url.searchParams.set("room",String(room));
+
+   const card=document.createElement("div");
+   card.className="card";
+
+   const title=document.createElement("h3");
+   title.textContent="YASH REGENCY - ROOM "+room;
+
+   const qr=document.createElement("div");
+   qr.className="qr";
+
+   const link=document.createElement("p");
+   link.textContent=url.toString();
+   link.style.overflowWrap="anywhere";
+
+   card.append(title,qr,link);
+   out.append(card);
+
+   new QRCode(qr,{
+     text:url.toString(),
+     width:200,
+     height:200
+   });
  }
 }
 </script>
